@@ -122,7 +122,7 @@ public class Request {
             if (this.useChunkedMode) {
                 this.connection.setChunkedStreamingMode(0);
             } else {
-                byte[] payloadBytes = this.payload.getBytes(StandardCharsets.UTF_8);
+                byte[] payloadBytes = this.payload.getBytes("UTF-8");
                 this.connection.setFixedLengthStreamingMode(payloadBytes.length);
             }
 
