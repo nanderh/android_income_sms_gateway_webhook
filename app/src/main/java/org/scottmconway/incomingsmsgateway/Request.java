@@ -12,6 +12,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
@@ -21,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
+import java.util.Scanner;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -120,7 +122,8 @@ public class Request {
             if (this.useChunkedMode) {
                 this.connection.setChunkedStreamingMode(0);
             } else {
-                this.connection.setFixedLengthStreamingMode(this.payload.length());
+                byte[] payloadBytes = this.payload.getBytes(StandardCharsets.UTF_8);
+                this.connection.setFixedLengthStreamingMode(payloadBytes.length);
             }
 
             OutputStream out = new BufferedOutputStream(this.connection.getOutputStream());
@@ -137,10 +140,25 @@ public class Request {
             writer.close();
             out.close();
 
-            new BufferedInputStream(this.connection.getInputStream());
+            int responseCode = this.connection.getResponseCode();
+            String responseMessage = this.connection.getResponseMessage();
+            Log.i("SmsGateway", "Response code: " + responseCode + " " + responseMessage);
 
-            char code = Integer.toString(this.connection.getResponseCode()).charAt(0);
-            if (!Character.toString(code).equals("2")) {
+            if (responseCode >= 200 && responseCode < 300) {
+                // Success — read response body if present
+                InputStream inputStream = this.connection.getInputStream();
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            } else {
+                // Error — read the error body for diagnostics
+                InputStream errorStream = this.connection.getErrorStream();
+                if (errorStream != null) {
+                    Scanner s = new Scanner(errorStream).useDelimiter("\\A");
+                    String errorBody = s.hasNext() ? s.next() : "(empty)";
+                    Log.e("SmsGateway", "Error body: " + errorBody);
+                    errorStream.close();
+                }
                 result = RESULT_RETRY;
             }
         } catch (NoSuchAlgorithmException e) {
